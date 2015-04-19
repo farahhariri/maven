@@ -19,11 +19,18 @@ package org.apache.maven.project.artifact;
  * under the License.
  */
 
+import java.io.File;
+
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
 
 import org.apache.maven.artifact.Artifact;
+import org.apache.maven.artifact.metadata.ResolutionGroup;
 import org.apache.maven.artifact.repository.ArtifactRepository;
+import org.apache.maven.artifact.repository.ArtifactRepositoryPolicy;
 import org.apache.maven.artifact.resolver.filter.ExcludesArtifactFilter;
 import org.apache.maven.project.artifact.DefaultMavenMetadataCache.CacheKey;
 import org.apache.maven.repository.DelegatingLocalArtifactRepository;
@@ -37,12 +44,14 @@ public class DefaultMavenMetadataCacheTest
     extends PlexusTestCase
 {
     private RepositorySystem repositorySystem;
+    private DefaultMavenMetadataCache cache;
 
     protected void setUp()
         throws Exception
     {
         super.setUp();
         repositorySystem = lookup( RepositorySystem.class );
+        cache = new DefaultMavenMetadataCache();
     }
 
     @Override
@@ -73,9 +82,104 @@ public class DefaultMavenMetadataCacheTest
         assertNotSame( lr1, lr2 );
         assertNotSame( rr1, rr2 );
 
-        CacheKey k1 = new CacheKey( a1, false, lr1, Collections.singletonList( rr1 ) );
-        CacheKey k2 = new CacheKey( a2, false, lr2, Collections.singletonList( rr2 ) );
+        CacheKey k1 = cache.newCacheKey( a1, false, lr1, Collections.singletonList( rr1 ) );
+        CacheKey k2 = cache.newCacheKey( a2, false, lr2, Collections.singletonList( rr2 ) );
 
         assertEquals(k1.hashCode(), k2.hashCode());
+    }
+
+    public void testCacheKeyWithPom()
+        throws Exception
+    {
+        Artifact a1 = repositorySystem.createArtifact( "testGroup", "testArtifact", "1.2.3", "pom" );
+        a1.setFile( new File( "tmp" ) );
+        ArtifactRepository lr1 = new DelegatingLocalArtifactRepository( repositorySystem.createDefaultLocalRepository() );
+        ArtifactRepository rr1 = repositorySystem.createDefaultRemoteRepository();
+        a1.setDependencyFilter( new ExcludesArtifactFilter( Arrays.asList( "foo" ) ) );
+
+        CacheKey k1 = cache.newCacheKey( a1, true, lr1, Collections.singletonList( rr1 ) );
+    }
+
+    public void testCacheKeyEquals()
+        throws Exception
+    {
+        Artifact a1 = repositorySystem.createArtifact( "testGroup", "testArtifact", "1.2.3", "pom" );
+        @SuppressWarnings( "deprecation" )
+        ArtifactRepository lr1 = new DelegatingLocalArtifactRepository( repositorySystem.createDefaultLocalRepository() );
+        ArtifactRepository rr1 = repositorySystem.createDefaultRemoteRepository();
+        a1.setDependencyFilter( new ExcludesArtifactFilter( Arrays.asList( "foo" ) ) );
+        a1.setScope( "test" );
+        a1.setOptional( true );
+
+        Artifact a2 = repositorySystem.createArtifact( "testGroup", "testArtifact", "1.2.3", "pom" );
+        @SuppressWarnings( "deprecation" )
+        ArtifactRepository lr2 = new DelegatingLocalArtifactRepository( repositorySystem.createDefaultLocalRepository() );
+        ArtifactRepository rr2 = repositorySystem.createDefaultRemoteRepository();
+        a2.setDependencyFilter( new ExcludesArtifactFilter( Arrays.asList( "foo" ) ) );
+        a2.setScope( "test" );
+        a2.setOptional( true );
+
+        Artifact a3 = repositorySystem.createArtifact( "testGroup", "testArtifact", "1.2.3", "pom" );
+        @SuppressWarnings( "deprecation" )
+        ArtifactRepository lr3 = new DelegatingLocalArtifactRepository( repositorySystem.createDefaultLocalRepository() );
+        ArtifactRepository rr3 = repositorySystem.createDefaultRemoteRepository();
+
+        CacheKey k1 = cache.newCacheKey( a1, false, lr1, Collections.singletonList( rr1 ) );
+        CacheKey k2 = cache.newCacheKey( a2, false, lr2, Collections.singletonList( rr2 ) );
+        CacheKey k3 = cache.newCacheKey( a3, false, lr3, Collections.singletonList( rr3 ) );
+
+        // Explicity use the equals() method
+        assertTrue( k1.equals( k1 ) );
+        assertFalse( k1.equals( new Object() ) );
+        assertTrue( k1.equals( k2 ) );
+        assertFalse( k1.equals( k3 ) );
+    }
+
+    public void testPutInCache()
+        throws Exception
+    {
+        Artifact a1 = repositorySystem.createArtifact( "testGroup", "testArtifact", "1.2.3", "pom" );
+        @SuppressWarnings( "deprecation" )
+        ArtifactRepository lr1 = new DelegatingLocalArtifactRepository( repositorySystem.createDefaultLocalRepository() );
+        ArtifactRepository rr1 = repositorySystem.createDefaultRemoteRepository();
+        a1.setDependencyFilter( new ExcludesArtifactFilter( Arrays.asList( "foo" ) ) );
+        a1.setScope( "test" );
+        a1.setOptional( true );
+
+        ResolutionGroup group = new ResolutionGroup( a1, new HashSet<Artifact>(), new ArrayList<ArtifactRepository>() );
+
+        cache.put( a1, false, lr1, Collections.singletonList( rr1 ), group );
+
+        ResolutionGroup result = cache.get( a1, false, lr1, Collections.singletonList( rr1 ) );
+
+        assertTrue( result.getPomArtifact().equals( group.getPomArtifact() ) );
+        assertTrue( result.getArtifacts().equals( group.getArtifacts() ) );
+        assertTrue( result.getResolutionRepositories().equals( group.getResolutionRepositories() ) );
+    }
+
+    public void testStaleEntryWithAlwaysUpdatingPolicy()
+        throws Exception
+    {
+        Artifact a1 = repositorySystem.createArtifact( "testGroup", "testArtifact", "1.2.3", "pom" );
+        a1.setFile( new File( "tmp" ) );
+        @SuppressWarnings( "deprecation" )
+        ArtifactRepository lr1 = new DelegatingLocalArtifactRepository( repositorySystem.createDefaultLocalRepository() );
+        ArtifactRepository rr1 = repositorySystem.createDefaultRemoteRepository();
+        a1.setDependencyFilter( new ExcludesArtifactFilter( Arrays.asList( "foo" ) ) );
+        a1.setScope( "test" );
+        a1.setOptional( true );
+
+        List<ArtifactRepository> remoteRepositories = new ArrayList<ArtifactRepository>();
+        ArtifactRepository rr2 = repositorySystem.createDefaultRemoteRepository();
+        rr2.setSnapshotUpdatePolicy( new ArtifactRepositoryPolicy( true, ArtifactRepositoryPolicy.UPDATE_POLICY_ALWAYS, ArtifactRepositoryPolicy.CHECKSUM_POLICY_IGNORE ) );
+        rr2.setReleaseUpdatePolicy( new ArtifactRepositoryPolicy( true, ArtifactRepositoryPolicy.UPDATE_POLICY_ALWAYS, ArtifactRepositoryPolicy.CHECKSUM_POLICY_IGNORE ) );
+        remoteRepositories.add( rr2 );
+        ResolutionGroup group = new ResolutionGroup( a1, new HashSet<Artifact>(), remoteRepositories );
+
+        cache.put( a1, false, lr1, Collections.singletonList( rr1 ), group );
+
+        ResolutionGroup result = cache.get( a1, false, lr1, Collections.singletonList( rr1 ) );
+
+        //assertTrue( result == null );
     }
 }

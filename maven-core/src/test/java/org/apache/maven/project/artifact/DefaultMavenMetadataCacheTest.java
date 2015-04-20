@@ -37,6 +37,9 @@ import org.apache.maven.repository.DelegatingLocalArtifactRepository;
 import org.apache.maven.repository.RepositorySystem;
 import org.codehaus.plexus.PlexusTestCase;
 
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.when;
+
 /**
  * @author Igor Fedorenko
  */
@@ -45,6 +48,8 @@ public class DefaultMavenMetadataCacheTest
 {
     private RepositorySystem repositorySystem;
     private DefaultMavenMetadataCache cache;
+
+    File pomFile = new File( "tmp" );
 
     protected void setUp()
         throws Exception
@@ -161,7 +166,11 @@ public class DefaultMavenMetadataCacheTest
         throws Exception
     {
         Artifact a1 = repositorySystem.createArtifact( "testGroup", "testArtifact", "1.2.3", "pom" );
-        a1.setFile( new File( "tmp" ) );
+        File spyFile = spy( pomFile );
+        when( spyFile.canRead() ).thenReturn( true );
+        when( spyFile.length() ).thenReturn( 1L );
+        when( spyFile.lastModified() ).thenReturn( 1L );
+        a1.setFile( spyFile );
         @SuppressWarnings( "deprecation" )
         ArtifactRepository lr1 = new DelegatingLocalArtifactRepository( repositorySystem.createDefaultLocalRepository() );
         ArtifactRepository rr1 = repositorySystem.createDefaultRemoteRepository();
@@ -178,8 +187,32 @@ public class DefaultMavenMetadataCacheTest
 
         cache.put( a1, false, lr1, Collections.singletonList( rr1 ), group );
 
+        // "Touch" the file to make it not stale
+        when( spyFile.length() ).thenReturn( 2L );
+        when( spyFile.lastModified() ).thenReturn( 2L );
+
         ResolutionGroup result = cache.get( a1, false, lr1, Collections.singletonList( rr1 ) );
 
-        //assertTrue( result == null );
+        assertTrue( result == null );
+    }
+
+    public void testFlush()
+        throws Exception
+    {
+        Artifact a1 = repositorySystem.createArtifact( "testGroup", "testArtifact", "1.2.3", "pom" );
+        ArtifactRepository lr1 = new DelegatingLocalArtifactRepository( repositorySystem.createDefaultLocalRepository() );
+        ArtifactRepository rr1 = repositorySystem.createDefaultRemoteRepository();
+        a1.setDependencyFilter( new ExcludesArtifactFilter( Arrays.asList( "foo" ) ) );
+        a1.setScope( "test" );
+        a1.setOptional( true );
+
+        ResolutionGroup group = new ResolutionGroup( a1, new HashSet<Artifact>(), new ArrayList<ArtifactRepository>() );
+
+        cache.put( a1, false, lr1, Collections.singletonList( rr1 ), group );
+        cache.flush();
+
+        ResolutionGroup result = cache.get( a1, false, lr1, Collections.singletonList( rr1 ) );
+
+        assertTrue( result == null );
     }
 }

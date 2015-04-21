@@ -55,7 +55,7 @@ public class BasedirBeanConfigurationPathTranslatorTest
     public void testTranslatePathWithNullArgument() {
 	File f = translator.translatePath(null);
 
-	assertEquals(null, f);
+	assertNull(f);
     }
 
     public void testTranslatePathWithAbsolutePath() {

@@ -151,11 +151,14 @@ public class DefaultMavenMetadataCacheTest
         a1.setScope( "test" );
         a1.setOptional( true );
 
-        ResolutionGroup group = new ResolutionGroup( a1, new HashSet<Artifact>(), new ArrayList<ArtifactRepository>() );
-
-        cache.put( a1, false, lr1, Collections.singletonList( rr1 ), group );
-
+        // First check if no cache record exists
         ResolutionGroup result = cache.get( a1, false, lr1, Collections.singletonList( rr1 ) );
+        assertTrue( result == null );
+
+        // Actually put in the cache
+        ResolutionGroup group = new ResolutionGroup( a1, new HashSet<Artifact>(), new ArrayList<ArtifactRepository>() );
+        cache.put( a1, false, lr1, Collections.singletonList( rr1 ), group );
+        result = cache.get( a1, false, lr1, Collections.singletonList( rr1 ) );
 
         assertTrue( result.getPomArtifact().equals( group.getPomArtifact() ) );
         assertTrue( result.getArtifacts().equals( group.getArtifacts() ) );
@@ -167,7 +170,7 @@ public class DefaultMavenMetadataCacheTest
     {
         Artifact a1 = repositorySystem.createArtifact( "testGroup", "testArtifact", "1.2.3", "pom" );
         File spyFile = spy( pomFile );
-        when( spyFile.canRead() ).thenReturn( true );
+        when( spyFile.canRead() ).thenReturn( false );
         when( spyFile.length() ).thenReturn( 1L );
         when( spyFile.lastModified() ).thenReturn( 1L );
         a1.setFile( spyFile );
@@ -185,6 +188,29 @@ public class DefaultMavenMetadataCacheTest
         remoteRepositories.add( rr2 );
         ResolutionGroup group = new ResolutionGroup( a1, new HashSet<Artifact>(), remoteRepositories );
 
+        cache.put( a1, false, lr1, Collections.singletonList( rr1 ), group );
+        ResolutionGroup result = cache.get( a1, false, lr1, Collections.singletonList( rr1 ) );
+
+        assertTrue( result == null );
+    }
+
+    public void testStaleEntryWithModifedPomFile()
+        throws Exception
+    {
+        Artifact a1 = repositorySystem.createArtifact( "testGroup", "testArtifact", "1.2.3", "pom" );
+        File spyFile = spy( pomFile );
+        when( spyFile.canRead() ).thenReturn( true );
+        when( spyFile.length() ).thenReturn( 1L );
+        when( spyFile.lastModified() ).thenReturn( 1L );
+        a1.setFile( spyFile );
+        @SuppressWarnings( "deprecation" )
+        ArtifactRepository lr1 = new DelegatingLocalArtifactRepository( repositorySystem.createDefaultLocalRepository() );
+        ArtifactRepository rr1 = repositorySystem.createDefaultRemoteRepository();
+        a1.setDependencyFilter( new ExcludesArtifactFilter( Arrays.asList( "foo" ) ) );
+        a1.setScope( "test" );
+        a1.setOptional( true );
+
+        ResolutionGroup group = new ResolutionGroup( a1, new HashSet<Artifact>(), new ArrayList<ArtifactRepository>() );
         cache.put( a1, false, lr1, Collections.singletonList( rr1 ), group );
 
         // "Touch" the file to make it not stale

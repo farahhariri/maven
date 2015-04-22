@@ -49,7 +49,15 @@ public class DefaultMavenMetadataCacheTest
     private RepositorySystem repositorySystem;
     private DefaultMavenMetadataCache cache;
 
-    File pomFile = new File( "tmp" );
+    private Artifact a1;
+    private Artifact a2;
+
+    private ArtifactRepository lr1;
+    private ArtifactRepository rr1;
+    private ArtifactRepository lr2;
+    private ArtifactRepository rr2;
+
+    private File pomFile = new File( "tmp" );
 
     protected void setUp()
         throws Exception
@@ -57,6 +65,17 @@ public class DefaultMavenMetadataCacheTest
         super.setUp();
         repositorySystem = lookup( RepositorySystem.class );
         cache = new DefaultMavenMetadataCache();
+
+        // Setup the artifacts we are going to be use between many tests
+        a1 = repositorySystem.createArtifact( "testGroup", "testArtifact", "1.2.3", "jar" );
+        lr1 = new DelegatingLocalArtifactRepository( repositorySystem.createDefaultLocalRepository() );
+        rr1 = repositorySystem.createDefaultRemoteRepository();
+        a1.setDependencyFilter( new ExcludesArtifactFilter( Arrays.asList( "foo" ) ) );
+
+        a2 = repositorySystem.createArtifact( "testGroup", "testArtifact", "1.2.3", "jar" );
+        lr2 = new DelegatingLocalArtifactRepository( repositorySystem.createDefaultLocalRepository() );
+        rr2 = repositorySystem.createDefaultRemoteRepository();
+        a2.setDependencyFilter( new ExcludesArtifactFilter( Arrays.asList( "foo" ) ) );
     }
 
     @Override
@@ -70,18 +89,6 @@ public class DefaultMavenMetadataCacheTest
     public void testCacheKey()
         throws Exception
     {
-        Artifact a1 = repositorySystem.createArtifact( "testGroup", "testArtifact", "1.2.3", "jar" );
-        @SuppressWarnings( "deprecation" )
-        ArtifactRepository lr1 = new DelegatingLocalArtifactRepository( repositorySystem.createDefaultLocalRepository() );
-        ArtifactRepository rr1 = repositorySystem.createDefaultRemoteRepository();
-        a1.setDependencyFilter( new ExcludesArtifactFilter( Arrays.asList( "foo" ) ) );
-
-        Artifact a2 = repositorySystem.createArtifact( "testGroup", "testArtifact", "1.2.3", "jar" );
-        @SuppressWarnings( "deprecation" )
-        ArtifactRepository lr2 = new DelegatingLocalArtifactRepository( repositorySystem.createDefaultLocalRepository() );
-        ArtifactRepository rr2 = repositorySystem.createDefaultRemoteRepository();
-        a2.setDependencyFilter( new ExcludesArtifactFilter( Arrays.asList( "foo" ) ) );
-
         // sanity checks
         assertNotSame( a1, a2 );
         assertNotSame( lr1, lr2 );
@@ -96,31 +103,20 @@ public class DefaultMavenMetadataCacheTest
     public void testCacheKeyWithPom()
         throws Exception
     {
-        Artifact a1 = repositorySystem.createArtifact( "testGroup", "testArtifact", "1.2.3", "pom" );
-        a1.setFile( new File( "tmp" ) );
-        ArtifactRepository lr1 = new DelegatingLocalArtifactRepository( repositorySystem.createDefaultLocalRepository() );
-        ArtifactRepository rr1 = repositorySystem.createDefaultRemoteRepository();
-        a1.setDependencyFilter( new ExcludesArtifactFilter( Arrays.asList( "foo" ) ) );
+        // Change type to pom and add a file
+        a1 = repositorySystem.createArtifact( "testGroup", "testArtifact", "1.2.3", "pom" );
+        a1.setFile( pomFile );
 
         CacheKey k1 = cache.newCacheKey( a1, true, lr1, Collections.singletonList( rr1 ) );
+        // Only need to assert that we don't fail in having a file and having type pom, also increases coverage
     }
 
     public void testCacheKeyEquals()
         throws Exception
     {
-        Artifact a1 = repositorySystem.createArtifact( "testGroup", "testArtifact", "1.2.3", "pom" );
-        @SuppressWarnings( "deprecation" )
-        ArtifactRepository lr1 = new DelegatingLocalArtifactRepository( repositorySystem.createDefaultLocalRepository() );
-        ArtifactRepository rr1 = repositorySystem.createDefaultRemoteRepository();
-        a1.setDependencyFilter( new ExcludesArtifactFilter( Arrays.asList( "foo" ) ) );
+        // Artifacts a1 and a2 should have different scope/optional, different from a3
         a1.setScope( "test" );
         a1.setOptional( true );
-
-        Artifact a2 = repositorySystem.createArtifact( "testGroup", "testArtifact", "1.2.3", "pom" );
-        @SuppressWarnings( "deprecation" )
-        ArtifactRepository lr2 = new DelegatingLocalArtifactRepository( repositorySystem.createDefaultLocalRepository() );
-        ArtifactRepository rr2 = repositorySystem.createDefaultRemoteRepository();
-        a2.setDependencyFilter( new ExcludesArtifactFilter( Arrays.asList( "foo" ) ) );
         a2.setScope( "test" );
         a2.setOptional( true );
 
@@ -143,14 +139,6 @@ public class DefaultMavenMetadataCacheTest
     public void testPutInCache()
         throws Exception
     {
-        Artifact a1 = repositorySystem.createArtifact( "testGroup", "testArtifact", "1.2.3", "pom" );
-        @SuppressWarnings( "deprecation" )
-        ArtifactRepository lr1 = new DelegatingLocalArtifactRepository( repositorySystem.createDefaultLocalRepository() );
-        ArtifactRepository rr1 = repositorySystem.createDefaultRemoteRepository();
-        a1.setDependencyFilter( new ExcludesArtifactFilter( Arrays.asList( "foo" ) ) );
-        a1.setScope( "test" );
-        a1.setOptional( true );
-
         // First check if no cache record exists
         ResolutionGroup result = cache.get( a1, false, lr1, Collections.singletonList( rr1 ) );
         assertTrue( result == null );
@@ -168,24 +156,18 @@ public class DefaultMavenMetadataCacheTest
     public void testStaleEntryWithAlwaysUpdatingPolicy()
         throws Exception
     {
-        Artifact a1 = repositorySystem.createArtifact( "testGroup", "testArtifact", "1.2.3", "pom" );
         File spyFile = spy( pomFile );
-        when( spyFile.canRead() ).thenReturn( false );
+        when( spyFile.canRead() ).thenReturn( false );  // Cannot read, but has repositories with always update policy
         when( spyFile.length() ).thenReturn( 1L );
         when( spyFile.lastModified() ).thenReturn( 1L );
         a1.setFile( spyFile );
-        @SuppressWarnings( "deprecation" )
-        ArtifactRepository lr1 = new DelegatingLocalArtifactRepository( repositorySystem.createDefaultLocalRepository() );
-        ArtifactRepository rr1 = repositorySystem.createDefaultRemoteRepository();
-        a1.setDependencyFilter( new ExcludesArtifactFilter( Arrays.asList( "foo" ) ) );
-        a1.setScope( "test" );
-        a1.setOptional( true );
 
+        // Add remote repository with always update policy
         List<ArtifactRepository> remoteRepositories = new ArrayList<ArtifactRepository>();
-        ArtifactRepository rr2 = repositorySystem.createDefaultRemoteRepository();
-        rr2.setSnapshotUpdatePolicy( new ArtifactRepositoryPolicy( true, ArtifactRepositoryPolicy.UPDATE_POLICY_ALWAYS, ArtifactRepositoryPolicy.CHECKSUM_POLICY_IGNORE ) );
-        rr2.setReleaseUpdatePolicy( new ArtifactRepositoryPolicy( true, ArtifactRepositoryPolicy.UPDATE_POLICY_ALWAYS, ArtifactRepositoryPolicy.CHECKSUM_POLICY_IGNORE ) );
-        remoteRepositories.add( rr2 );
+        ArtifactRepository remoteRepo = repositorySystem.createDefaultRemoteRepository();
+        remoteRepo.setSnapshotUpdatePolicy( new ArtifactRepositoryPolicy( true, ArtifactRepositoryPolicy.UPDATE_POLICY_ALWAYS, ArtifactRepositoryPolicy.CHECKSUM_POLICY_IGNORE ) );
+        remoteRepo.setReleaseUpdatePolicy( new ArtifactRepositoryPolicy( true, ArtifactRepositoryPolicy.UPDATE_POLICY_ALWAYS, ArtifactRepositoryPolicy.CHECKSUM_POLICY_IGNORE ) );
+        remoteRepositories.add( remoteRepo );
         ResolutionGroup group = new ResolutionGroup( a1, new HashSet<Artifact>(), remoteRepositories );
 
         cache.put( a1, false, lr1, Collections.singletonList( rr1 ), group );
@@ -197,18 +179,11 @@ public class DefaultMavenMetadataCacheTest
     public void testStaleEntryWithModifedPomFile()
         throws Exception
     {
-        Artifact a1 = repositorySystem.createArtifact( "testGroup", "testArtifact", "1.2.3", "pom" );
         File spyFile = spy( pomFile );
-        when( spyFile.canRead() ).thenReturn( true );
+        when( spyFile.canRead() ).thenReturn( true );   // Set readable file
         when( spyFile.length() ).thenReturn( 1L );
         when( spyFile.lastModified() ).thenReturn( 1L );
         a1.setFile( spyFile );
-        @SuppressWarnings( "deprecation" )
-        ArtifactRepository lr1 = new DelegatingLocalArtifactRepository( repositorySystem.createDefaultLocalRepository() );
-        ArtifactRepository rr1 = repositorySystem.createDefaultRemoteRepository();
-        a1.setDependencyFilter( new ExcludesArtifactFilter( Arrays.asList( "foo" ) ) );
-        a1.setScope( "test" );
-        a1.setOptional( true );
 
         ResolutionGroup group = new ResolutionGroup( a1, new HashSet<Artifact>(), new ArrayList<ArtifactRepository>() );
         cache.put( a1, false, lr1, Collections.singletonList( rr1 ), group );
@@ -225,13 +200,6 @@ public class DefaultMavenMetadataCacheTest
     public void testFlush()
         throws Exception
     {
-        Artifact a1 = repositorySystem.createArtifact( "testGroup", "testArtifact", "1.2.3", "pom" );
-        ArtifactRepository lr1 = new DelegatingLocalArtifactRepository( repositorySystem.createDefaultLocalRepository() );
-        ArtifactRepository rr1 = repositorySystem.createDefaultRemoteRepository();
-        a1.setDependencyFilter( new ExcludesArtifactFilter( Arrays.asList( "foo" ) ) );
-        a1.setScope( "test" );
-        a1.setOptional( true );
-
         ResolutionGroup group = new ResolutionGroup( a1, new HashSet<Artifact>(), new ArrayList<ArtifactRepository>() );
 
         cache.put( a1, false, lr1, Collections.singletonList( rr1 ), group );

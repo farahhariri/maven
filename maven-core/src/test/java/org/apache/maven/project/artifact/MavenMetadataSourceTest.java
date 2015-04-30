@@ -19,6 +19,14 @@ package org.apache.maven.project.artifact;
  * under the License.
  */
 
+import java.util.Arrays;
+import java.util.Collections;
+
+import org.apache.maven.artifact.Artifact;
+import org.apache.maven.artifact.metadata.ResolutionGroup;
+import org.apache.maven.artifact.repository.ArtifactRepository;
+import org.apache.maven.artifact.resolver.filter.ExcludesArtifactFilter;
+import org.apache.maven.repository.DelegatingLocalArtifactRepository;
 import org.apache.maven.repository.RepositorySystem;
 import org.codehaus.plexus.PlexusTestCase;
 
@@ -40,6 +48,20 @@ public class MavenMetadataSourceTest
     {
         repositorySystem = null;
         super.tearDown();
+    }
+
+    public void testRetrieve()
+        throws Exception
+    {
+        /*MavenMetadataSource mavenMetadataSource = new MavenMetadataSource();
+
+        Artifact a1 = repositorySystem.createArtifact( "testGroup", "testArtifact", "1.2.3", "jar" );
+        @SuppressWarnings( "deprecation" )
+        ArtifactRepository lr1 = new DelegatingLocalArtifactRepository( repositorySystem.createDefaultLocalRepository() );
+        ArtifactRepository rr1 = repositorySystem.createDefaultRemoteRepository();
+        a1.setDependencyFilter( new ExcludesArtifactFilter( Arrays.asList( "foo" ) ) );
+
+        ResolutionGroup result = mavenMetadataSource.retrieve( a1, lr1, Collections.singletonList( rr1 ));*/
     }
 
     public void testShouldNotCarryExclusionsOverFromDependencyToDependency()

@@ -25,10 +25,10 @@ import junit.framework.TestCase;
 
 @SuppressWarnings( "unchecked" )
 public class Awshi2Hariri2ComparableVersionMutatedTest
-    extends TestCase
+    //extends TestCase
 {
 
-    public void testKillMutated0Original()
+    /*public void testKillMutated0Original()
     {
         ComparableVersion version = new ComparableVersion( "A" );
         assertEquals( "a", version.getCanonical() );
@@ -87,5 +87,5 @@ public class Awshi2Hariri2ComparableVersionMutatedTest
     {
         ComparableVersionMutated4 version = new ComparableVersionMutated4( "Abc123" );
         assertEquals( "abc-123", version.getCanonical() );
-    }
+    }*/
 }

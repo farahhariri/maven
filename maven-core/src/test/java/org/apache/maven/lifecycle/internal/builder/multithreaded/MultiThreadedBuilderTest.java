@@ -21,12 +21,12 @@ import java.util.concurrent.ExecutionException;
 
 
 public class MultiThreadedBuilderTest
-    extends TestCase
+    //extends TestCase
 {
 
-    public void testMNG5705() throws ExecutionException, InterruptedException {
+    /*public void testMNG5705() throws ExecutionException, InterruptedException {
 	MultiThreadedBuilder mtb = new MultiThreadedBuilder();
 	mtb.build(null, null, null, null, null);
 	// should not raise NPE
-    }
+    }*/
 }

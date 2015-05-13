@@ -53,6 +53,12 @@ public class DefaultProjectDependencyGraphTest
         assertEquals( aProject, sortedProjects.get( 0 ) );
         assertEquals( depender1, sortedProjects.get( 1 ) );
     }
+    public void testToStringAwshi2Hariri2()
+        throws DuplicateProjectException, CycleDetectedException
+    {
+        ProjectDependencyGraph graph = new DefaultProjectDependencyGraph( Arrays.asList( depender1, aProject ) );
+        assertEquals( "[MavenProject: org.apache:A:1.2 @ , MavenProject: org.apache:depender1:1.2 @ ]", graph.toString() );
+    }
 
     public void testVerifyExpectedParentStructure()
         throws CycleDetectedException, DuplicateProjectException
@@ -74,6 +80,32 @@ public class DefaultProjectDependencyGraphTest
         assertEquals( depender1, downstreamProjects.get( 0 ) );
         assertEquals( depender2, downstreamProjects.get( 1 ) );
         assertEquals( depender3, downstreamProjects.get( 2 ) );
+    }
+
+    public void testGetDownstreamProjectsWithNullInputAwshi2Hariri2()
+        throws CycleDetectedException, DuplicateProjectException
+    {
+        boolean exceptionThrown = false;
+        try {
+            List<MavenProject> downstreamProjects =
+                threeProjectsDependingOnASingle().getDownstreamProjects( null, true );
+        } catch (IllegalArgumentException e) {
+            exceptionThrown = true;
+        }
+        assertTrue(exceptionThrown);
+    }
+
+    public void testGetUpstreamProjectsWithNullInputAwshi2Hariri2()
+        throws CycleDetectedException, DuplicateProjectException
+    {
+        boolean exceptionThrown = false;
+        try {
+            List<MavenProject> downstreamProjects =
+                threeProjectsDependingOnASingle().getUpstreamProjects( null, true );
+        } catch (IllegalArgumentException e) {
+            exceptionThrown = true;
+        }
+        assertTrue(exceptionThrown);
     }
 
     public void testTransitivesInOrder()
